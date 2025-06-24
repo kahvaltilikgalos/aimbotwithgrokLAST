@@ -1,0 +1,584 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+local function createAimbotGUI()
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "AimbotGui"
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Enabled = false
+
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0, 250, 0, 600) -- Yükseklik artırıldı, yeni butonlar için
+    Frame.Position = UDim2.new(0.75, 0, 0.3, 0) -- Sağ tarafa kaydırıldı
+    Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Frame.BorderSizePixel = 0
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 10)
+    Corner.Parent = Frame
+    local Gradient = Instance.new("UIGradient")
+    Gradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 60)), ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 50, 90))}
+    Gradient.Parent = Frame
+    Frame.Active = true
+    Frame.Draggable = true
+    Frame.Parent = ScreenGui
+
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, 0, 0, 30)
+    Title.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+    Title.Text = "Aimbot Menu (Toggle: U)"
+    Title.TextColor3 = Color3.fromRGB(0, 191, 255)
+    Title.TextSize = 16
+    Title.Font = Enum.Font.GothamBold
+    Title.Parent = Frame
+
+    local function createToggle(name, yPos, default, callback)
+        local ToggleButton = Instance.new("TextButton")
+        ToggleButton.Size = UDim2.new(0.9, 0, 0, 30)
+        ToggleButton.Position = UDim2.new(0.05, 0, 0, yPos)
+        ToggleButton.BackgroundColor3 = default and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
+        ToggleButton.Text = name .. ": " .. (default and "On" or "Off")
+        ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        ToggleButton.TextSize = 14
+        ToggleButton.Font = Enum.Font.Gotham
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 5)
+        Corner.Parent = ToggleButton
+        ToggleButton.Parent = Frame
+
+        ToggleButton.MouseButton1Click:Connect(function()
+            default = not default
+            ToggleButton.BackgroundColor3 = default and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
+            ToggleButton.Text = name .. ": " .. (default and "On" or "Off")
+            callback(default)
+        end)
+        return default
+    end
+
+    local function createSlider(name, yPos, min, max, default, callback)
+        local SliderFrame = Instance.new("Frame")
+        SliderFrame.Size = UDim2.new(0.9, 0, 0, 50)
+        SliderFrame.Position = UDim2.new(0.05, 0, 0, yPos)
+        SliderFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 5)
+        Corner.Parent = SliderFrame
+        SliderFrame.Parent = Frame
+
+        local Label = Instance.new("TextLabel")
+        Label.Size = UDim2.new(1, 0, 0, 20)
+        Label.BackgroundTransparency = 1
+        Label.Text = name .. ": " .. default
+        Label.TextColor3 = Color3.fromRGB(0, 191, 255)
+        Label.TextSize = 14
+        Label.Font = Enum.Font.Gotham
+        Label.Parent = SliderFrame
+
+        local SliderBar = Instance.new("Frame")
+        SliderBar.Size = UDim2.new(0.9, 0, 0, 10)
+        SliderBar.Position = UDim2.new(0.05, 0, 0, 30)
+        SliderBar.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 5)
+        Corner.Parent = SliderBar
+        SliderBar.Parent = SliderFrame
+
+        local SliderButton = Instance.new("TextButton")
+        SliderButton.Size = UDim2.new(0, 10, 0, 10)
+        SliderButton.BackgroundColor3 = Color3.fromRGB(0, 191, 255)
+        SliderButton.Text = ""
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 5)
+        Corner.Parent = SliderButton
+        SliderButton.Parent = SliderBar
+
+        local function updateSlider()
+            local percentage = (default - min) / (max - min)
+            SliderButton.Position = UDim2.new(percentage * 0.9, 0, 0, 0)
+            Label.Text = name .. ": " .. string.format("%.2f", default)
+            callback(default)
+        end
+
+        SliderButton.MouseButton1Down:Connect(function()
+            local connection
+            connection = RunService.RenderStepped:Connect(function()
+                if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+                    local mouseX = UserInputService:GetMouseLocation().X
+                    local barX = SliderBar.AbsolutePosition.X
+                    local barWidth = SliderBar.AbsoluteSize.X
+                    local percentage = math.clamp((mouseX - barX) / barWidth, 0, 1)
+                    default = min + percentage * (max - min)
+                    updateSlider()
+                else
+                    connection:Disconnect()
+                end
+            end)
+        end)
+
+        SliderButton.MouseEnter:Connect(function()
+            SliderButton.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+        end)
+        SliderButton.MouseLeave:Connect(function()
+            SliderButton.BackgroundColor3 = Color3.fromRGB(0, 191, 255)
+        end)
+
+        updateSlider()
+        return default
+    end
+
+    local settings = {
+        AimbotEnabled = false,
+        TeamCheck = false,
+        FOVCircle = false,
+        AliveCheck = true,
+        TracerEnabled = false,
+        FOVRadius = 90,
+        Smoothness = 0,
+        AimPart = "Head"
+    }
+
+    settings.AimbotEnabled = createToggle("Aimbot", 40, false, function(value) settings.AimbotEnabled = value end)
+    settings.TeamCheck = createToggle("Team Check", 80, false, function(value) settings.TeamCheck = value end)
+    settings.FOVCircle = createToggle("FOV Circle", 120, false, function(value) settings.FOVCircle = value end)
+    settings.AliveCheck = createToggle("Alive Check", 160, true, function(value) settings.AliveCheck = value end)
+    settings.TracerEnabled = createToggle("Tracers", 200, false, function(value) settings.TracerEnabled = value end)
+    settings.FOVRadius = createSlider("FOV Radius", 240, 50, 300, 90, function(value) settings.FOVRadius = value end)
+    settings.Smoothness = createSlider("Smoothness", 300, 0, 1, 0, function(value) settings.Smoothness = value end)
+
+    local function createTargetToggle(name, yPos, default, partName)
+        local ToggleButton = Instance.new("TextButton")
+        ToggleButton.Size = UDim2.new(0.9, 0, 0, 30)
+        ToggleButton.Position = UDim2.new(0.05, 0, 0, yPos)
+        ToggleButton.BackgroundColor3 = default and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(100, 100, 100)
+        ToggleButton.Text = name
+        ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        ToggleButton.TextSize = 14
+        ToggleButton.Font = Enum.Font.Gotham
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 5)
+        Corner.Parent = ToggleButton
+        ToggleButton.Parent = Frame
+
+        ToggleButton.MouseButton1Click:Connect(function()
+            settings.AimPart = partName
+            for _, btn in pairs(Frame:GetChildren()) do
+                if btn:IsA("TextButton") and (btn.Text == "Head" or btn.Text == "Body" or btn.Text == "LeftFoot" or btn.Text == "RightFoot") and btn ~= ToggleButton then
+                    btn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+                end
+            end
+            ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        end)
+        if default then
+            ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+        end
+        return default
+    end
+
+    createTargetToggle("Head", 360, true, "Head")
+    createTargetToggle("Body", 400, false, "UpperTorso")
+    createTargetToggle("LeftFoot", 440, false, "LeftFoot")
+    createTargetToggle("RightFoot", 480, false, "RightFoot")
+
+    local CloseButton = Instance.new("TextButton")
+    CloseButton.Size = UDim2.new(0, 30, 0, 30)
+    CloseButton.Position = UDim2.new(1, -30, 0, 0)
+    CloseButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+    CloseButton.Text = "X"
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseButton.TextSize = 14
+    CloseButton.Font = Enum.Font.GothamBold
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 5)
+    Corner.Parent = CloseButton
+    CloseButton.Parent = Frame
+    CloseButton.MouseButton1Click:Connect(function()
+        ScreenGui:Destroy()
+    end)
+
+    return settings, ScreenGui
+end
+
+local function createCheatGUI()
+    local CheatGui = Instance.new("ScreenGui")
+    CheatGui.Name = "CheatGui"
+    CheatGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    CheatGui.ResetOnSpawn = false
+    CheatGui.Enabled = false
+
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0, 250, 0, 350)
+    Frame.Position = UDim2.new(0.02, 0, 0.4, 0) -- Sol tarafta aşağı kaydırıldı
+    Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    Frame.BorderSizePixel = 0
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 10)
+    Corner.Parent = Frame
+    local Gradient = Instance.new("UIGradient")
+    Gradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 60)), ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 50, 90))}
+    Gradient.Parent = Frame
+    Frame.Active = true
+    Frame.Draggable = true
+    Frame.Parent = CheatGui
+
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, 0, 0, 30)
+    Title.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+    Title.Text = "Cheat Menu (Toggle: K)"
+    Title.TextColor3 = Color3.fromRGB(0, 191, 255)
+    Title.TextSize = 16
+    Title.Font = Enum.Font.GothamBold
+    Title.Parent = Frame
+
+    local function createToggle(name, yPos, default, callback)
+        local ToggleButton = Instance.new("TextButton")
+        ToggleButton.Size = UDim2.new(0.9, 0, 0, 30)
+        ToggleButton.Position = UDim2.new(0.05, 0, 0, yPos)
+        ToggleButton.BackgroundColor3 = default and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
+        ToggleButton.Text = name .. ": " .. (default and "On" or "Off")
+        ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        ToggleButton.TextSize = 14
+        ToggleButton.Font = Enum.Font.Gotham
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 5)
+        Corner.Parent = ToggleButton
+        ToggleButton.Parent = Frame
+
+        ToggleButton.MouseButton1Click:Connect(function()
+            default = not default
+            ToggleButton.BackgroundColor3 = default and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
+            ToggleButton.Text = name .. ": " .. (default and "On" or "Off")
+            callback(default)
+        end)
+        return default
+    end
+
+    local function createSlider(name, yPos, min, max, default, callback)
+        local SliderFrame = Instance.new("Frame")
+        SliderFrame.Size = UDim2.new(0.9, 0, 0, 50)
+        SliderFrame.Position = UDim2.new(0.05, 0, 0, yPos)
+        SliderFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 5)
+        Corner.Parent = SliderFrame
+        SliderFrame.Parent = Frame
+
+        local Label = Instance.new("TextLabel")
+        Label.Size = UDim2.new(1, 0, 0, 20)
+        Label.BackgroundTransparency = 1
+        Label.Text = name .. ": " .. default
+        Label.TextColor3 = Color3.fromRGB(0, 191, 255)
+        Label.TextSize = 14
+        Label.Font = Enum.Font.Gotham
+        Label.Parent = SliderFrame
+
+        local SliderBar = Instance.new("Frame")
+        SliderBar.Size = UDim2.new(0.9, 0, 0, 10)
+        SliderBar.Position = UDim2.new(0.05, 0, 0, 30)
+        SliderBar.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 5)
+        Corner.Parent = SliderBar
+        SliderBar.Parent = SliderFrame
+
+        local SliderButton = Instance.new("TextButton")
+        SliderButton.Size = UDim2.new(0, 10, 0, 10)
+        SliderButton.BackgroundColor3 = Color3.fromRGB(0, 191, 255)
+        SliderButton.Text = ""
+        local Corner = Instance.new("UICorner")
+        Corner.CornerRadius = UDim.new(0, 5)
+        Corner.Parent = SliderButton
+        SliderButton.Parent = SliderBar
+
+        local function updateSlider()
+            local percentage = (default - min) / (max - min)
+            SliderButton.Position = UDim2.new(percentage * 0.9, 0, 0, 0)
+            Label.Text = name .. ": " .. math.floor(default)
+            callback(default)
+        end
+
+        SliderButton.MouseButton1Down:Connect(function()
+            local connection
+            connection = RunService.RenderStepped:Connect(function()
+                if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+                    local mouseX = UserInputService:GetMouseLocation().X
+                    local barX = SliderBar.AbsolutePosition.X
+                    local barWidth = SliderBar.AbsoluteSize.X
+                    local percentage = math.clamp((mouseX - barX) / barWidth, 0, 1)
+                    default = min + percentage * (max - min)
+                    updateSlider()
+                else
+                    connection:Disconnect()
+                end
+            end)
+        end)
+
+        SliderButton.MouseEnter:Connect(function()
+            SliderButton.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+        end)
+        SliderButton.MouseLeave:Connect(function()
+            SliderButton.BackgroundColor3 = Color3.fromRGB(0, 191, 255)
+        end)
+
+        updateSlider()
+        return default
+    end
+
+    local cheatSettings = {
+        JumpPowerEnabled = false,
+        SpeedEnabled = false,
+        NoclipEnabled = false,
+        ESPEnabled = false,
+        JumpPower = 50,
+        WalkSpeed = 16
+    }
+
+    cheatSettings.JumpPowerEnabled = createToggle("Jump Power", 40, false, function(value)
+        cheatSettings.JumpPowerEnabled = value
+    end)
+    cheatSettings.JumpPower = createSlider("Jump Power", 80, 50, 200, 50, function(value)
+        if cheatSettings.JumpPowerEnabled then
+            cheatSettings.JumpPower = value
+        end
+    end)
+
+    cheatSettings.SpeedEnabled = createToggle("Speed", 140, false, function(value)
+        cheatSettings.SpeedEnabled = value
+    end)
+    cheatSettings.WalkSpeed = createSlider("Walk Speed", 180, 16, 100, 16, function(value)
+        if cheatSettings.SpeedEnabled then
+            cheatSettings.WalkSpeed = value
+        end
+    end)
+
+    cheatSettings.NoclipEnabled = createToggle("Noclip", 240, false, function(value)
+        cheatSettings.NoclipEnabled = value
+    end)
+
+    cheatSettings.ESPEnabled = createToggle("ESP", 280, false, function(value)
+        cheatSettings.ESPEnabled = value
+    end)
+
+    local CloseButton = Instance.new("TextButton")
+    CloseButton.Size = UDim2.new(0, 30, 0, 30)
+    CloseButton.Position = UDim2.new(1, -30, 0, 0)
+    CloseButton.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+    CloseButton.Text = "X"
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseButton.TextSize = 14
+    CloseButton.Font = Enum.Font.GothamBold
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 5)
+    Corner.Parent = CloseButton
+    CloseButton.Parent = Frame
+    CloseButton.MouseButton1Click:Connect(function()
+        CheatGui:Destroy()
+    end)
+
+    return cheatSettings, CheatGui
+end
+
+local ESPBoxes = {}
+local function createESPBox()
+    local box = Drawing.new("Square")
+    box.Thickness = 3
+    box.Filled = false
+    box.Visible = false
+    box.Color = Color3.fromRGB(0, 255, 0)
+    box.Transparency = 0.7
+    return box
+end
+
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 1
+FOVCircle.NumSides = 60
+FOVCircle.Radius = 90
+FOVCircle.Filled = false
+FOVCircle.Visible = false
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Transparency = 0.7
+
+local TargetBox = Drawing.new("Square")
+TargetBox.Size = Vector2.new(50, 50)
+TargetBox.Thickness = 2
+TargetBox.Filled = false
+TargetBox.Visible = false
+TargetBox.Color = Color3.fromRGB(255, 0, 0)
+TargetBox.Transparency = 0.8
+
+local Tracers = {}
+local function createTracer()
+    local tracer = Drawing.new("Line")
+    tracer.Thickness = 1
+    tracer.Color = Color3.fromRGB(255, 255, 255)
+    tracer.Transparency = 0.7
+    tracer.Visible = false
+    return tracer
+end
+
+local Settings, ScreenGui = createAimbotGUI()
+local CheatSettings, CheatGui = createCheatGUI()
+local AimPart = "Head"
+local Holding = false
+
+local originalWalkSpeed = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character.Humanoid.WalkSpeed or 16
+local originalJumpPower = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character.Humanoid.JumpPower or 50
+
+RunService.RenderStepped:Connect(function()
+    local character = LocalPlayer.Character
+    if character and character:FindFirstChild("Humanoid") then
+        local humanoid = character.Humanoid
+        if CheatSettings.JumpPowerEnabled then
+            humanoid.JumpPower = CheatSettings.JumpPower
+        end
+        if CheatSettings.SpeedEnabled then
+            humanoid.WalkSpeed = CheatSettings.WalkSpeed
+        end
+    end
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed then
+        if input.KeyCode == Enum.KeyCode.U then
+            ScreenGui.Enabled = not ScreenGui.Enabled
+        elseif input.KeyCode == Enum.KeyCode.K then
+            CheatGui.Enabled = not CheatGui.Enabled
+        end
+    end
+end)
+
+local function GetClosestPlayer()
+    local closestPlayer = nil
+    local closestDistance = Settings.FOVRadius
+    local mousePos = UserInputService:GetMouseLocation()
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild(Settings.AimPart) then
+            local humanoid = player.Character:FindFirstChild("Humanoid")
+            if Settings.AliveCheck and humanoid and humanoid.Health <= 0 then
+                continue
+            end
+            if Settings.TeamCheck and player.Team == LocalPlayer.Team then
+                continue
+            end
+
+            local partPos = player.Character[Settings.AimPart].Position
+            local screenPos, onScreen = Camera:WorldToViewportPoint(partPos)
+            if onScreen then
+                local distance = (Vector2.new(mousePos.X, mousePos.Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                if distance < closestDistance then
+                    closestDistance = distance
+                    closestPlayer = player
+                end
+            end
+        end
+    end
+
+    return closestPlayer
+end
+
+RunService.RenderStepped:Connect(function()
+    if Settings.AimbotEnabled and Holding then
+        local target = GetClosestPlayer()
+        if target and target.Character and target.Character:FindFirstChild(Settings.AimPart) then
+            local targetPos = target.Character[Settings.AimPart].Position
+            if Settings.Smoothness > 0.05 then
+                local TweenService = game:GetService("TweenService")
+                local tweenInfo = TweenInfo.new(Settings.Smoothness, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+                TweenService:Create(Camera, tweenInfo, {CFrame = CFrame.new(Camera.CFrame.Position, targetPos)}):Play()
+            else
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPos)
+            end
+            local screenPos, onScreen = Camera:WorldToViewportPoint(targetPos)
+            if onScreen then
+                TargetBox.Position = Vector2.new(screenPos.X - TargetBox.Size.X / 2, screenPos.Y - TargetBox.Size.Y / 2)
+                TargetBox.Visible = true
+            else
+                TargetBox.Visible = false
+            end
+        else
+            TargetBox.Visible = false
+        end
+    else
+        TargetBox.Visible = false
+    end
+end)
+
+RunService.Stepped:Connect(function()
+    if CheatSettings.NoclipEnabled and LocalPlayer.Character then
+        for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    FOVCircle.Position = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
+    FOVCircle.Radius = Settings.FOVRadius
+    FOVCircle.Visible = Settings.FOVCircle
+
+    for _, tracer in pairs(Tracers) do
+        tracer:Remove()
+    end
+    Tracers = {}
+    if Settings.TracerEnabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                if not (Settings.AliveCheck and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health <= 0) then
+                    if not (Settings.TeamCheck and player.Team == LocalPlayer.Team) then
+                        local tracer = createTracer()
+                        tracer.From = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
+                        local targetPos = player.Character.HumanoidRootPart.Position
+                        local screenPos, onScreen = Camera:WorldToViewportPoint(targetPos)
+                        if onScreen then
+                            tracer.To = Vector2.new(screenPos.X, screenPos.Y)
+                            tracer.Visible = true
+                        end
+                        table.insert(Tracers, tracer)
+                    end
+                end
+            end
+        end
+    end
+
+    for _, box in pairs(ESPBoxes) do
+        box:Remove()
+    end
+    ESPBoxes = {}
+    if CheatSettings.ESPEnabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                if not (Settings.AliveCheck and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health <= 0) then
+                    if not (Settings.TeamCheck and player.Team == LocalPlayer.Team) then
+                        local humanoidRootPart = player.Character.HumanoidRootPart
+                        local center = Camera:WorldToViewportPoint(humanoidRootPart.Position)
+                        local size = 40
+                        if center.Z > 0 then
+                            local box = createESPBox()
+                            box.Size = Vector2.new(size, size)
+                            box.Position = Vector2.new(center.X - size / 2, center.Y - size / 2)
+                            box.Visible = true
+                            table.insert(ESPBoxes, box)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+UserInputService.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        Holding = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        Holding = false
+    end
+end)
